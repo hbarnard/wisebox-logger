@@ -1,0 +1,9 @@
+'''    
+    client = influxdb_client.InfluxDBClient(
+       url= config['influx_url'],
+       precision = config['influx_precision'],
+       token=config['influx_token'],
+       org=config['influx_org'],
+       debug=config['influx_debug']
+    )
+'''

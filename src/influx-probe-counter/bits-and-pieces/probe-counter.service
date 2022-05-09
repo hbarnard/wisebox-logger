@@ -1,0 +1,9 @@
+[Unit]
+Description=Write Tcap Probe to Influx
+After=multi-user.target
+[Service]
+Type=simple
+Restart=always
+ExecStart=/usr/bin/python3 /home/pi/projects/wisebix-logger/src/influx-probe-counter/probe_counter.py
+[Install]
+WantedBy=multi-user.target
