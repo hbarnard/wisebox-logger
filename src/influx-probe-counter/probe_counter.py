@@ -14,7 +14,9 @@ import random
 import time
 import datetime
 import json
+import math
 # this changes lat,lon to s2 cells for influxdb see: https://www.influxdata.com/blog/exploring-geo-temporal-flux/
+# however looks as though lat, lon is used by Influxdb maps, so random generated at present
 import s2cell
 
 from collections import Counter
@@ -30,6 +32,14 @@ start_seconds = 0
 def read_config():
     with open('/etc/wisebox/config.json', 'r') as f:
         return json.load(f)
+
+def generate_random_latlon (lat, lon):
+    #hex1 = '%012x' % random.randrange(16**12)                
+    flt = float(random.randint(0,100))
+    lon = float(lon) + random.random()/100 
+    lat = float(lat) + random.random()/100
+    return (str(lon), str(lat) )
+
 
 
 def unix_time_point(date_time):
@@ -94,9 +104,13 @@ def batch_and_send(probe_fields, client, config):
     # count for batch size for writing
     batch_counter['count'] += 1
     
+    
+    (lat,lon) = generate_random_latlon (config['lat'], config['lon'])
+    #print('lat: ', lat, 'lon: ', lon)
+    
     # alternate version but need to anonymise probing mac, for example
     # s2_cell_id is for influx map display, doc a little sketchy at the moment
-    p = influxdb_client.Point("probe").tag("s2_cell_id", config['s2_cell_id']).tag("mac", probe_fields[12]).field("signal", rssi).time(nanoseconds)
+    p = influxdb_client.Point("probe").tag("lat", lat).tag("lon", lon).tag("mac", probe_fields[12]).field("signal", rssi).time(nanoseconds)
 
     # have a look at p
     #print("line protocol point is ", p)
@@ -131,8 +145,10 @@ def main(argv):
     client = influxdb_client.InfluxDBClient.from_config_file("/etc/wisebox/influx.ini")
     
     # only do this *once*
-    [lat, lon] = config['wisebox_location'].split(',')
-    config['s2_cell_id'] = s2cell.lat_lon_to_token(float(lat), float(lon))
+    [config['lat'], config['lon']] = config['wisebox_location'].split(',')
+    
+    # not going to use s2 for the moment, Influxdb not ready, using leaflet.js
+    #config['s2_cell_id'] = s2cell.lat_lon_to_token(float(lat), float(lon))
     
     start_seconds = int(datetime.datetime.now().timestamp())
 
