@@ -38,7 +38,7 @@ def generate_random_latlon (lat, lon):
     flt = float(random.randint(0,100))
     lon = float(lon) + random.random()/100 
     lat = float(lat) + random.random()/100
-    return (str(lon), str(lat) )
+    return (str(lat), str(lon) )
 
 
 
