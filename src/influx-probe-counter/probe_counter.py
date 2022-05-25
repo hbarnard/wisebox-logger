@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-#
+#FIXME: surely some of these aren't needed?
 import sys
 import argparse
 import subprocess
@@ -15,8 +15,9 @@ import time
 import datetime
 import json
 import math
+import csv
+
 # this changes lat,lon to s2 cells for influxdb see: https://www.influxdata.com/blog/exploring-geo-temporal-flux/
-# however looks as though lat, lon is used by Influxdb maps, so random generated at present
 import s2cell
 
 from collections import Counter
@@ -25,7 +26,7 @@ ssid_counter = Counter()
 batch_counter = Counter()
 probe_batch = [] 
 start_seconds = 0
-
+locations = []
 
 # should path be hardcoded? 
 # json used rather than ini, since easier for api later on
@@ -33,14 +34,24 @@ def read_config():
     with open('/etc/wisebox/config.json', 'r') as f:
         return json.load(f)
 
+# generate randoms round a centre, not used currently
 def generate_random_latlon (lat, lon):
-    #hex1 = '%012x' % random.randrange(16**12)                
+    hex1 = '%012x' % random.randrange(16**12)                
     flt = float(random.randint(0,100))
     lon = float(lon) + random.random()/100 
     lat = float(lat) + random.random()/100
+    ###print (lat,lon)
     return (str(lat), str(lon) )
 
 
+# list of 'constant' fake locations centered round the Nottingham campus
+def read_fake_locations():
+    locations = []
+    with open('/etc/wisebox/locations.csv', newline='') as csvfile:
+        reader = csv.reader(csvfile)
+        for row in reader:
+            locations.append([row[0],row[1]])
+    return locations
 
 def unix_time_point(date_time):
     # make nanosecond time with date from clock (!) and time from probe
@@ -50,7 +61,7 @@ def unix_time_point(date_time):
     return dt_obj.timestamp()
 
 
-def invoke_process_popen_poll_live(command, client, config, shellType=False, stdoutType=subprocess.PIPE):
+def invoke_process_popen_poll_live(command, client, config, locations, shellType=False, stdoutType=subprocess.PIPE):
     """runs subprocess with Popen/poll so that live stdout is shown"""
     try:
         process = subprocess.Popen(
@@ -65,7 +76,7 @@ def invoke_process_popen_poll_live(command, client, config, shellType=False, std
         if output:
             formatted_output = output.strip().decode()
             probe_fields = formatted_output.split()
-            batch_and_send(probe_fields, client, config)
+            batch_and_send(probe_fields, client, config, locations)
     rc = process.poll()
     return rc
     
@@ -79,22 +90,22 @@ def invoke_process_popen_poll_live(command, client, config, shellType=False, std
 1 20:33:46.790369 -84dBm SA:5a:43:77:19:6c:6a
 '''
 
-def batch_and_send(probe_fields, client, config):
+def batch_and_send(probe_fields, client, config, locations):
      
     global probe_batch  
-    global start_seconds  
-          
-    # change dBm to rough positive value, review later, dBm value is negative, from -90dBm to about -60dBm
+    global start_seconds 
+
+    # change dBm to rough positive value, review later, actual dBm value is negative, from -90dBm to about -60dBm
     rssi = abs((100 + int(probe_fields[6].strip('dBm'))) * 10)
     #print("rssi is", probe_fields[6], rssi)
     
     # this uses the clock time from probe, not Pi (or other) clock
-    # currently only nanoseconds works, ask influx folks
+    #FIXME: currently only nanoseconds works, ask influx folks
     nanoseconds = int(unix_time_point(probe_fields[0]) * 1e09)
     
     #print("nanoseconds are ",nanoseconds)
     
-    # don't need this, just a debug facility, watch input go in
+    #FIXME: don't need this, just a debug facility, watch input go in
     if (config['wisebox_delay'] > 0):
         time.sleep(config['wisebox_delay'])
 
@@ -104,16 +115,17 @@ def batch_and_send(probe_fields, client, config):
     # count for batch size for writing
     batch_counter['count'] += 1
     
+    #FIXME: this should come from box configuration in a 'real' setting    
+    #(lat,lon) = generate_random_latlon (config['lat'], config['lon'])
+    (lat,lon) = random.choice(locations)
+    ###print(lat,lon)
     
-    (lat,lon) = generate_random_latlon (config['lat'], config['lon'])
-    #print('lat: ', lat, 'lon: ', lon)
-    
-    # alternate version but need to anonymise probing mac, for example
-    # s2_cell_id is for influx map display, doc a little sketchy at the moment
+    #FIXME: need to anonymise probing mac, guid or hash?
+    #FIXME: s2_cell_id possible, but leaflet.js not keen, so lat,lon
     p = influxdb_client.Point("probe").tag("lat", lat).tag("lon", lon).tag("mac", probe_fields[12]).field("signal", rssi).time(nanoseconds)
 
     # have a look at p
-    #print("line protocol point is ", p)
+    print("line protocol point is ", p)
 
     # append the data point to the batch for writing
     probe_batch.append(p)
@@ -122,9 +134,7 @@ def batch_and_send(probe_fields, client, config):
     now_seconds = int(datetime.datetime.now().timestamp())
     elapsed_seconds = now_seconds - start_seconds
     
-    #print('elapsed seconds are ', now_seconds, start_seconds, elapsed_seconds)
-        
-    # write it into the test bucket for nottingham-u organisation
+    #FIXME: think about batching up/downsampling etc. write it into the test bucket for nottingham-u organisation
     if ((batch_counter['count'] >= config['batch_size']) or (elapsed_seconds >= config['wisebox_interval'])):
         
         # maybe initialise this further up, is there an overhead? ask Influx folks?
@@ -136,7 +146,7 @@ def batch_and_send(probe_fields, client, config):
         batch_counter.clear()
         ssid_counter.clear()
         probe_batch = []
-        # reset clock
+        # reset batching clock
         start_seconds = now_seconds
         
 def main(argv):
@@ -144,18 +154,20 @@ def main(argv):
     config = read_config()
     client = influxdb_client.InfluxDBClient.from_config_file("/etc/wisebox/influx.ini")
     
-    # only do this *once*
-    [config['lat'], config['lon']] = config['wisebox_location'].split(',')
+    #FIXME: only do this *once* when live
+    #[config['lat'], config['lon']] = config['wisebox_location'].split(',')
     
-    # not going to use s2 for the moment, Influxdb not ready, using leaflet.js
+    # list of fake locations centered around the campus
+    locations = read_fake_locations()
+    
+    #FIXME: not going to use s2 for the moment, Influxdb not ready, using leaflet.js
     #config['s2_cell_id'] = s2cell.lat_lon_to_token(float(lat), float(lon))
     
     start_seconds = int(datetime.datetime.now().timestamp())
 
-    while True:
-        
+    while True:        
         # I've left the command input here rather than within config, makes things clearer
-        invoke_process_popen_poll_live(config['wisebox_command'], client, config)
+        invoke_process_popen_poll_live(config['wisebox_command'], client, config, locations)
 
 if __name__ == '__main__':
     main(sys.argv)
