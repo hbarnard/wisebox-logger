@@ -1,4 +1,5 @@
 #FIXME: there's a problem with Bucket and the update to the database currently, validation
+#FIXME: Since we're now Mariadb can we deal cleanly with geo datatypes here: https://pypi.org/project/geojson-pydantic/ ?
 
 from pydantic import BaseModel
 from datetime import time 
@@ -33,7 +34,7 @@ class BucketRssi(BucketRssiBase):
     class Config:
         orm_mode = True
 
-#FIXME: Bucket, Optional should cure validation problem?
+#FIXME: Bucket, Optional should cure validation problem, but not sure it does?
 
 class BucketBase(BaseModel):
     start_time : time

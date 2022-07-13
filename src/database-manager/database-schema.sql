@@ -75,11 +75,16 @@ CREATE TABLE `BucketRssi` (
 
 --
 -- Table structure for table `Device`
---
+-- FIXME: See: https://stackoverflow.com/questions/12504208/what-mysql-data-type-should-be-used-for-latitude-longitude-with-8-decimal-places
+-- title is short title and place is an extended description of where the box is...
 
 CREATE TABLE `Device` (
   `id` int(11) NOT NULL,
-  `mac` varchar(17) DEFAULT NULL
+  `mac` varchar(17) DEFAULT NULL,
+  `lat` decimal(8,6) DEFAULT NULL,
+  `lng` decimal(9,6) DEFAULT NULL,
+  `title` varchar(60) DEFAULT NULL,
+  `place` text 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
