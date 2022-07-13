@@ -53,7 +53,7 @@ def get_buckets(db: Session, skip: int = 0, limit: int = 100):
 
 
 def create_bucket(db: Session, bucket: schemas.BucketCreate):
-    db_bucket = database.Bucket(start_time=bucket.start_time)
+    db_bucket = database.Bucket(start_time=bucket.start_time, interval=bucket.interval, frequency=bucket.frequency, count=bucket.count)
     db.add(db_bucket)
     db.commit()
     db.refresh(db_bucket)
@@ -85,7 +85,7 @@ def get_bucketmetadatas(db: Session, skip: int = 0, limit: int = 100):
 
 
 def create_bucketmetadata(db: Session, bucketmetadata: schemas.BucketMetadataCreate):
-    db_bucketmetadata = database.BucketMetadata(name=bucketmetadata.name)
+    db_bucketmetadata = database.BucketMetadata(name=bucketmetadata.name, value=bucketmetadata.value)
     db.add(db_bucketmetadata)
     db.commit()
     db.refresh(db_bucketmetadata)
