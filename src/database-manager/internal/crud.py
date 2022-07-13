@@ -13,7 +13,7 @@ def get_devices(db: Session, skip: int = 0, limit: int = 100):
 
 
 def create_device(db: Session, device: schemas.DeviceCreate):
-    db_device = database.Device(mac=device.mac)
+    db_device = database.Device(mac= device.mac, lat = device.lat, lng = device.lng, title = device.title, place = device.place)
     db.add(db_device)
     db.commit()
     db.refresh(db_device)

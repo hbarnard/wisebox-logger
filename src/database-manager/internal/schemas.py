@@ -1,21 +1,35 @@
 #FIXME: there's a problem with Bucket and the update to the database currently, validation
 #FIXME: Since we're now Mariadb can we deal cleanly with geo datatypes here: https://pypi.org/project/geojson-pydantic/ ?
+#FIXME: condecimal is an old fix but decimal.Decimal doesn't seem to work?
 
 from pydantic import BaseModel
 from datetime import time 
 from typing import Optional
+from pydantic import condecimal
 
 # Device
 
 class DeviceBase(BaseModel):
     mac: str
+    lat: condecimal(max_digits=8, decimal_places=6) 
+    lng: condecimal(max_digits=9, decimal_places=6) 
+    title: str
+    place: str 
 
 class DeviceCreate(DeviceBase):
     mac: str
+    lat: condecimal(max_digits=8, decimal_places=6)
+    lng: condecimal(max_digits=9, decimal_places=6)
+    title: str
+    place: str 
 
 class Device(DeviceBase):
     id: int
     mac: str
+    lat: condecimal(max_digits=8, decimal_places=6) 
+    lng: condecimal(max_digits=9, decimal_places=6)
+    title: str
+    place: str 
     class Config:
         orm_mode = True
 
