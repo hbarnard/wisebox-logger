@@ -1,0 +1,10 @@
+[Unit]
+Description=Start Logger via Systemd
+After=multi-user.target
+[Service]
+Type=simple
+Restart=always
+Environment="PATH=/home/pi/.local/share/virtualenvs/wisebox-logger-fSl5EYct/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games"
+ExecStart=/usr/bin/python3 /home/pi/projects/wisebox-logger/src/wisebox-logger.py wlan0 1 /home/pi/projects/wisebox-logger/logs
+[Install]
+WantedBy=multi-user.target

@@ -12,7 +12,7 @@ from typing import Union
 
 import netifaces
 import pytz
-#import web
+
 from jsonargparse import ActionConfigFile, ArgumentParser
 import json
 import glob
@@ -20,7 +20,10 @@ import time
 
 import influxdb_client
 from influxdb_client.client.write_api import SYNCHRONOUS
-import s2cell
+
+from starlette.applications import Starlette
+from starlette.responses import PlainTextResponse
+from starlette.routing import Route
 
 VERSION = '1.0'
 DESCRIPTION ='Compressed Log Files to InfluxDb'
@@ -33,16 +36,21 @@ def read_config():
         return json.load(f)
 
 
+# take each logfile, batch up the entries and send it to database
+
 def batch_and_send(logfile, client, config):
      
     content = Logfile()
     probe_batch = []
     (startdate,status,entries,header) = content.GET(logfile)
+    
+    # get the time out of header
+    
     for entry in entries:
-        nanoseconds = int(entry[0].timestamp()) 
-    # alternate version but need to anonymise probing mac, for example
-    # s2_cell_id is for influx map display, doc a little sketchy at the moment
-        p = influxdb_client.Point("probe").tag("s2_cell_id", config['s2_cell_id']).field("count", entry[2]).time(nanoseconds)
+        #FIXME: need to anonymise probing mac: https://en.wikipedia.org/wiki/MAC_address_anonymization
+        
+        #FIXME: s2_cell_id possible, but leaflet.js not keen, so lat,lon
+        p = influxdb_client.Point("probe").tag("lat", lat).tag("lon", lon).tag("mac", header['mac']).field("signal", rssi).time(nanoseconds)
         # have a look at p
         print("line protocol point is ", p)
         time.sleep(config['wisebox_delay'])
@@ -144,10 +152,7 @@ def main():
     
     # only do this *once*
     [lat, lon] = config['wisebox_location'].split(',')
-    config['s2_cell_id'] = s2cell.lat_lon_to_token(float(lat), float(lon))
     
-    start_seconds = int(datetime.datetime.now().timestamp())
-
     index = Index()       
     log_files = index.GET()
     #print(log_files)
